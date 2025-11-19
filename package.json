@@ -2,13 +2,14 @@
   "name": "boarding-pass-generator",
   "version": "1.0.0",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "postinstall": "PUPPETEER_PRODUCT=chrome puppeteer install",
     "start": "node server.js"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^123.0.2",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "puppeteer": "^21.3.8"
+    "puppeteer-core": "^21.3.8"
   }
 }

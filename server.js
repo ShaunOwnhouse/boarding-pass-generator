@@ -59,10 +59,15 @@ async function generatePass(data, req) {
     .replace(/{{bags}}/g, String(data.bags ?? ""));
 
   // Launch Puppeteer
-  const browser = await puppeteer.launch({
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+const chromium = require("@sparticuz/chromium");
+const puppeteer = require("puppeteer-core");
 
+const browser = await puppeteer.launch({
+  args: chromium.args,
+  defaultViewport: chromium.defaultViewport,
+  executablePath: await chromium.executablePath(),
+  headless: chromium.headless,
+});
   const page = await browser.newPage();
   await page.setViewport({ width: 900, height: 1400 });
   await page.setContent(html, { waitUntil: "networkidle0" });
