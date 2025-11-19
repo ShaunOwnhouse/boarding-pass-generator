@@ -8,77 +8,119 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// IMPORTANT: on Render the app folder is read-only. /tmp is writable.
+// Writable directory on Render
 const passesDir = path.join("/tmp", "passes");
 if (!fs.existsSync(passesDir)) fs.mkdirSync(passesDir, { recursive: true });
 
-// Simple health check
+/* ---------------------------------------------------
+   HEALTH CHECK
+--------------------------------------------------- */
 app.get("/", (req, res) => {
   res.send("✅ Boarding Pass Generator is running");
 });
 
+app.get("/test", (req, res) => {
+  res.json({
+    status: "OK",
+    message: "Boarding Pass Generator Running ✔️"
+  });
+});
+
+/* ---------------------------------------------------
+   CORE LOGIC: GENERATE BOARDING PASS (Reusable Function)
+--------------------------------------------------- */
+async function generatePass(data, req) {
+  if (!data.passenger || !data.flight || !data.seat) {
+    throw new Error("Missing required fields");
+  }
+
+  // File name -> BA6234-JaneDoe.png
+  const safeName =
+    `${data.flight || "flight"}-` +
+    `${(data.passenger || "passenger").replace(/\s+/g, "")}.png`;
+
+  const outputPath = path.join(passesDir, safeName);
+
+  // Load template
+  const templatePath = path.join(__dirname, "template.html");
+  const template = fs.readFileSync(templatePath, "utf8");
+
+  // Inject data into template
+  const html = template
+    .replace(/{{passenger}}/g, data.passenger || "")
+    .replace(/{{flight}}/g, data.flight || "")
+    .replace(/{{airline}}/g, data.airline || "")
+    .replace(/{{route}}/g, data.route || "")
+    .replace(/{{seat}}/g, data.seat || "")
+    .replace(/{{gate}}/g, data.gate || "")
+    .replace(/{{terminal}}/g, data.terminal || "")
+    .replace(/{{bpNumber}}/g, data.bpNumber || "")
+    .replace(/{{departure}}/g, data.departure || "")
+    .replace(/{{bags}}/g, String(data.bags ?? ""));
+
+  // Launch Puppeteer
+  const browser = await puppeteer.launch({
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
+
+  const page = await browser.newPage();
+  await page.setViewport({ width: 900, height: 1400 });
+  await page.setContent(html, { waitUntil: "networkidle0" });
+
+  await page.screenshot({ path: outputPath, fullPage: true });
+  await browser.close();
+
+  const imageUrl = `${req.protocol}://${req.get("host")}/passes/${safeName}`;
+  return imageUrl;
+}
+
+/* ---------------------------------------------------
+   POST VERSION  (Kore.ai will use this)
+--------------------------------------------------- */
 app.post("/generate-boarding-pass", async (req, res) => {
   try {
-    const data = req.body;
-
-    if (!data.passenger || !data.flight || !data.seat) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    // File name like BA6234-JaneDoe.png
-    const safeName =
-      `${data.flight || "flight"}-` +
-      `${(data.passenger || "passenger").replace(/\s+/g, "")}.png`;
-
-    const outputPath = path.join(passesDir, safeName);
-
-    // Load HTML template
-    const templatePath = path.join(__dirname, "template.html");
-    const template = fs.readFileSync(templatePath, "utf8");
-
-    // Inject data into template (simple string replace)
-    const html = template
-      .replace(/{{passenger}}/g, data.passenger || "")
-      .replace(/{{flight}}/g, data.flight || "")
-      .replace(/{{airline}}/g, data.airline || "")
-      .replace(/{{route}}/g, data.route || "")
-      .replace(/{{seat}}/g, data.seat || "")
-      .replace(/{{gate}}/g, data.gate || "")
-      .replace(/{{terminal}}/g, data.terminal || "")
-      .replace(/{{bpNumber}}/g, data.bpNumber || "")
-      .replace(/{{departure}}/g, data.departure || "")
-      .replace(/{{bags}}/g, String(data.bags ?? "")); // can be 0
-
-    // Launch headless Chrome
-    const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    const page = await browser.newPage();
-    await page.setViewport({ width: 900, height: 1400 });
-    await page.setContent(html, { waitUntil: "networkidle0" });
-
-    // Take screenshot
-    await page.screenshot({ path: outputPath, fullPage: true });
-
-    await browser.close();
-
-    const imageUrl = `${req.protocol}://${req.get("host")}/passes/${safeName}`;
-
-    return res.json({
-      status: "success",
-      imageUrl,
-    });
+    const imageUrl = await generatePass(req.body, req);
+    res.json({ status: "success", imageUrl });
   } catch (err) {
-    console.error("Error generating boarding pass:", err);
-    return res.status(500).json({ error: "Failed to generate boarding pass" });
+    console.error("Error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Serve generated images
+/* ---------------------------------------------------
+   GET VERSION  (for browser testing)
+--------------------------------------------------- */
+app.get("/generate", async (req, res) => {
+  try {
+    const data = {
+      passenger: req.query.passenger,
+      flight: req.query.flight,
+      seat: req.query.seat,
+      gate: req.query.gate,
+      terminal: req.query.terminal,
+      route: req.query.route,
+      airline: req.query.airline,
+      bpNumber: req.query.bpNumber,
+      departure: req.query.departure,
+      bags: req.query.bags
+    };
+
+    const imageUrl = await generatePass(data, req);
+    res.json({ status: "success", imageUrl });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ---------------------------------------------------
+   SERVE GENERATED IMAGES
+--------------------------------------------------- */
 app.use("/passes", express.static(passesDir));
 
-// Start server
+/* ---------------------------------------------------
+   START SERVER
+--------------------------------------------------- */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Boarding Pass Server running on port ${PORT}`);
