@@ -62,10 +62,8 @@ async function generatePass(data, req) {
   // Launch Puppeteer
 const chromium = require("@sparticuz/chromium");
 const puppeteer = require("puppeteer-core");
-
 const browser = await puppeteer.launch({
   args: chromium.args,
-  defaultViewport: chromium.defaultViewport,
   executablePath: await chromium.executablePath(),
   headless: chromium.headless,
 });
