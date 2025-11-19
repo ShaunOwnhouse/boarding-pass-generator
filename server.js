@@ -2,7 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
+const chromium = require("@sparticuz/chromium");
 
 const app = express();
 app.use(cors());
@@ -68,6 +69,7 @@ const browser = await puppeteer.launch({
   executablePath: await chromium.executablePath(),
   headless: chromium.headless,
 });
+
   const page = await browser.newPage();
   await page.setViewport({ width: 900, height: 1400 });
   await page.setContent(html, { waitUntil: "networkidle0" });
