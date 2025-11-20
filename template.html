@@ -1,175 +1,88 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <title>Boarding Pass</title>
     <style>
-        * { margin:0; padding:0; box-sizing:border-box; font-family: Arial, sans-serif; }
         body {
-            background: #e8e8f1;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             padding: 40px;
-            display: flex;
-            justify-content: center;
+            font-family: Arial, sans-serif;
         }
+
         .card {
-            width: 900px;
             background: #fff;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0px 10px 40px rgba(0,0,0,0.15);
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            padding: 20px 30px;
-            background: #f7f7fb;
-            border-bottom: 2px solid #eee;
-        }
-        .header img {
-            height: 40px;
-        }
-        .boarding-title {
-            font-weight: bold;
-            font-size: 20px;
-            color: #444;
-        }
-
-        .section {
+            width: 700px;
+            margin: auto;
+            border-radius: 20px;
             padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         }
 
-        .passenger {
-            margin-bottom: 20px;
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            color: #333;
         }
-        .label {
-            font-size: 12px;
-            color: #777;
-            text-transform: uppercase;
-            margin-bottom: 6px;
+
+        .section-title {
+            margin-top: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #555;
         }
+
         .value {
             font-size: 22px;
-            font-weight: bold;
-            color: #222;
-        }
-
-        .row {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-        .cell {
-            width: 30%;
-        }
-
-        .route-box {
-            background: #f1f3ff;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            margin: 25px 0;
-        }
-        .airport-code {
-            font-size: 40px;
-            font-weight: bold;
-            color: #5262f5;
-        }
-        .airport-name {
-            font-size: 14px;
-            color: #666;
-        }
-        .arrow {
-            font-size: 30px;
-            margin: 0 20px;
+            margin-bottom: 10px;
             color: #333;
         }
 
         .barcode {
-            margin-top: 40px;
             height: 80px;
             background: repeating-linear-gradient(
                 90deg,
-                #000 0px,
+                #000 0px, 
                 #000 2px,
                 #fff 2px,
                 #fff 4px
             );
-        }
-
-        .footer {
-            padding: 20px 30px;
-            background: #f7f7fb;
-            font-size: 12px;
-            color: #666;
+            margin-top: 30px;
         }
     </style>
 </head>
 
 <body>
 <div class="card">
-    <div class="header">
-        <img src="{{airlineLogo}}" alt="Airline Logo">
-        <div class="boarding-title">BOARDING PASS</div>
-    </div>
 
-    <div class="section">
+    <h1>✈️ {{airline}}</h1>
 
-        <div class="passenger">
-            <div class="label">Passenger</div>
-            <div class="value">{{passenger}}</div>
-        </div>
+    <div class="section-title">Passenger</div>
+    <div class="value">{{passenger}}</div>
 
-        <div class="route-box">
-            <div class="airport-code">{{routeFromCode}}</div>
-            <div class="airport-name">{{routeFromName}}</div>
-            <div class="arrow">✈️</div>
-            <div class="airport-code">{{routeToCode}}</div>
-            <div class="airport-name">{{routeToName}}</div>
-        </div>
+    <div class="section-title">Flight</div>
+    <div class="value">{{flight}}</div>
 
-        <div class="row">
-            <div class="cell">
-                <div class="label">Flight</div>
-                <div class="value">{{flight}}</div>
-            </div>
-            <div class="cell">
-                <div class="label">Date</div>
-                <div class="value">{{departureDate}}</div>
-            </div>
-            <div class="cell">
-                <div class="label">Departure</div>
-                <div class="value">{{departureTime}}</div>
-            </div>
-        </div>
+    <div class="section-title">Route</div>
+    <div class="value">{{route}}</div>
 
-        <div class="row">
-            <div class="cell">
-                <div class="label">Gate</div>
-                <div class="value">{{gate}}</div>
-            </div>
-            <div class="cell">
-                <div class="label">Seat</div>
-                <div class="value">{{seat}}</div>
-            </div>
-            <div class="cell">
-                <div class="label">Terminal</div>
-                <div class="value">{{terminal}}</div>
-            </div>
-        </div>
+    <div class="section-title">Seat</div>
+    <div class="value">{{seat}}</div>
 
-        <div class="barcode"></div>
+    <div class="section-title">Gate</div>
+    <div class="value">{{gate}}</div>
 
-        <div style="text-align:center; margin-top:15px;">
-            Boarding Pass Number: <b>{{bpNumber}}</b>
-        </div>
-    </div>
+    <div class="section-title">Terminal</div>
+    <div class="value">{{terminal}}</div>
 
-    <div class="footer">
-        • Boarding closes 30 mins before departure<br>
-        • ID/Passport required for boarding<br>
-        • {{bags}} checked bag(s) allowed
-    </div>
+    <div class="section-title">Departure</div>
+    <div class="value">{{departureDate}} {{departureTime}}</div>
+
+    <div class="section-title">Boarding Pass Number</div>
+    <div class="value">{{bpNumber}}</div>
+
+    <div class="barcode"></div>
+
 </div>
 </body>
 </html>
