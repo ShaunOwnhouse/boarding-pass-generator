@@ -1,124 +1,124 @@
+/**
+ * Boarding Pass Generator Server
+ */
+
 const express = require("express");
 const cors = require("cors");
-const fs = require("fs");
+const bodyParser = require("body-parser");
 const path = require("path");
-const puppeteer = require("puppeteer-core");
-const chromium = require("@sparticuz/chromium");
+const fs = require("fs");
+const Jimp = require("jimp");
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+app.use(bodyParser.json());
 
-// Render writable directory
-const passesDir = path.join("/tmp", "passes");
-if (!fs.existsSync(passesDir)) fs.mkdirSync(passesDir, { recursive: true });
+// =======================================================
+// 1. STATIC PUBLIC FOLDER
+// =======================================================
+const publicDir = path.join(__dirname, "public");
+const passesDir = path.join(publicDir, "passes");
+const templateDir = path.join(__dirname, "template");
 
-// Health check
+// Ensure /public and /public/passes exist
+if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir);
+if (!fs.existsSync(passesDir)) fs.mkdirSync(passesDir);
+
+app.use(express.static(publicDir));
+
+// Base URL for links returned to Kore
+const BASE_URL =
+  process.env.BASE_URL || "https://boarding-pass-generator.onrender.com";
+
+// =======================================================
+// 2. HEALTH CHECK
+// =======================================================
 app.get("/", (req, res) => {
-  res.send("✅ Boarding Pass Generator is running");
+  res.send("Boarding Pass Generator is Running");
 });
 
-// Generate boarding pass
+// =======================================================
+// 3. MAIN ENDPOINT: Generate Boarding Pass
+// =======================================================
 app.post("/generate-boarding-pass", async (req, res) => {
   try {
-    const data = req.body;
+    const {
+      passenger,
+      flight,
+      airline,
+      route,
+      seat,
+      gate,
+      terminal,
+      bpNumber,
+      departure,
+      bags,
+    } = req.body;
 
-    // Validate required fields
-    if (!data.passenger || !data.flight || !data.seat) {
-      return res.status(400).json({
-        error:
-          "Missing required fields: passenger, flight, and seat must be provided",
+    console.log("Incoming payload:", req.body);
+
+    // ------------- Load template image -------------
+    const templatePath = path.join(
+      templateDir,
+      "boarding-pass-template.png"
+    );
+
+    if (!fs.existsSync(templatePath)) {
+      console.error("Template NOT found at:", templatePath);
+      return res.status(500).json({
+        status: "error",
+        message: "Template image not found on server",
       });
     }
 
-    // ==========================
-    // FORMAT & CLEAN INPUT DATA
-    // ==========================
+    const image = await Jimp.read(templatePath);
 
-    // Split route: "Johannesburg to London"
-    const [routeFromName, routeToName] = (data.route || "").split(" to ");
+    // ------------- Load font -------------
+    const font = await Jimp.loadFont(Jimp.FONT_SANS_16_BLACK);
 
-    const routeFromCode = routeFromName
-      ? routeFromName.substring(0, 3).toUpperCase()
-      : "";
-    const routeToCode = routeToName
-      ? routeToName.substring(0, 3).toUpperCase()
-      : "";
+    // ------------- Write text onto image -------------
+    image.print(font, 30, 40, `Passenger: ${passenger}`);
+    image.print(font, 30, 70, `Flight: ${flight}`);
+    image.print(font, 30, 100, `Seat: ${seat}`);
+    image.print(font, 30, 130, `Gate: ${gate}`);
+    image.print(font, 30, 160, `Terminal: ${terminal}`);
+    image.print(font, 30, 190, `Boarding Pass: ${bpNumber}`);
+    image.print(font, 30, 220, `Departure: ${departure}`);
+    image.print(font, 30, 250, `Bags: ${bags}`);
 
-    // Split departure datetime: "2025-11-20 18:45"
-    const [departureDate, departureTime] = (data.departure || "").split(" ");
+    // ------------- Build safe file name -------------
+    const safePassenger = passenger.replace(/\s+/g, "");
+    const safeFlight = flight.replace(/\s+/g, "");
 
-    // Generate safe filename
-    const safeName =
-      `${data.flight || "flight"}-` +
-      `${(data.passenger || "passenger").replace(/\s+/g, "")}.png`;
+    const fileName = `${safeFlight}-${safePassenger}.png`;
+    const filePath = path.join(passesDir, fileName);
 
-    const outputPath = path.join(passesDir, safeName);
+    console.log("Saving boarding pass to:", filePath);
 
-    // Load HTML template
-    const templatePath = path.join(__dirname, "template.html");
-    const template = fs.readFileSync(templatePath, "utf8");
+    // ------------- Write PNG file -------------
+    await image.writeAsync(filePath);
 
-    // ==========================
-    // REPLACE TEMPLATE VARIABLES
-    // ==========================
-    const html = template
-      .replace(/{{passenger}}/g, data.passenger || "")
-      .replace(/{{airline}}/g, data.airline || "")
-      .replace(/{{flight}}/g, data.flight || "")
-      .replace(/{{gate}}/g, data.gate || "")
-      .replace(/{{terminal}}/g, data.terminal || "")
-      .replace(/{{seat}}/g, data.seat || "")
-      .replace(/{{bags}}/g, String(data.bags ?? ""))
-      .replace(/{{bpNumber}}/g, data.bpNumber || "")
-      .replace(/{{routeFromName}}/g, routeFromName || "")
-      .replace(/{{routeToName}}/g, routeToName || "")
-      .replace(/{{routeFromCode}}/g, routeFromCode || "")
-      .replace(/{{routeToCode}}/g, routeToCode || "")
-      .replace(/{{departureDate}}/g, departureDate || "")
-      .replace(/{{departureTime}}/g, departureTime || "");
+    // ------------- Return URL Kore will display -------------
+    const imageUrl = `${BASE_URL}/passes/${fileName}`;
 
-    // ==========================
-    // LAUNCH CHROMIUM (Render)
-    // ==========================
-    const browser = await puppeteer.launch({
-      executablePath: await chromium.executablePath(),
-      args: chromium.args,
-      headless: chromium.headless,
-      defaultViewport: chromium.defaultViewport,
-    });
+    console.log("Boarding Pass URL:", imageUrl);
 
-    const page = await browser.newPage();
-    await page.setViewport({ width: 900, height: 1400 });
-
-    await page.setContent(html, { waitUntil: "networkidle0" });
-
-    // Screenshot to PNG
-    await page.screenshot({ path: outputPath, fullPage: true });
-
-    await browser.close();
-
-    // Public image URL
-    const imageUrl = `${req.protocol}://${req.get("host")}/passes/${safeName}`;
-
-    return res.json({
+    res.json({
       status: "success",
       imageUrl,
     });
+
   } catch (err) {
-    console.error("❌ Error generating boarding pass:", err);
-    return res.status(500).json({
-      error: "Failed to generate boarding pass",
-      details: err.message,
+    console.error("ERROR GENERATING PASS:", err);
+    res.status(500).json({
+      status: "error",
+      message: "Generation failed",
     });
   }
 });
 
-// Serve generated PNG images
-app.use("/passes", express.static(passesDir));
-
-// Start server
+// =======================================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ Boarding Pass Server running on port ${PORT}`);
-});
+app.listen(PORT, () =>
+  console.log(`✈ Boarding Pass Server running on port ${PORT}`)
+);
