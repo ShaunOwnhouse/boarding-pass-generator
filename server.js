@@ -1,91 +1,152 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const path = require("path");
-const puppeteer = require("puppeteer-core");
-const chromium = require("@sparticuz/chromium");
-const fs = require("fs");
+import express from "express";
+import bodyParser from "body-parser";
+import puppeteer from "puppeteer";
+import path from "path";
+import fs from "fs";
 
 const app = express();
 app.use(bodyParser.json());
 
-// ---- Airline Logo Mapping ----
-const airlineLogos = {
-    "British Airways": "https://upload.wikimedia.org/wikipedia/en/thumb/6/65/British_Airways_Logo.svg/512px-British_Airways_Logo.svg.png",
-    "South African Airways": "https://upload.wikimedia.org/wikipedia/commons/4/43/South_African_Airways_Logo.svg",
-    "Mango Airlines": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Mango_Airlines_logo.svg/2560px-Mango_Airlines_logo.svg.png",
-    "FlySafair": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/FlySafair_Logo.svg/2560px-FlySafair_Logo.svg.png",
-    "Emirates": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Emirates_logo.svg/2560px-Emirates_logo.svg.png"
-};
+const __dirname = path.resolve();
+const PASSES_DIR = path.join(__dirname, "passes");
 
-// Static route for saved passes
-app.use("/passes", express.static(path.join(__dirname, "passes")));
+// Ensure folder exists
+if (!fs.existsSync(PASSES_DIR)) {
+    fs.mkdirSync(PASSES_DIR);
+}
 
 app.post("/generate-boarding-pass", async (req, res) => {
     try {
         const data = req.body;
+        console.log("Incoming data:", data);
 
-        // pick airline logo
-        const airlineLogo = airlineLogos[data.airline] || airlineLogos["South African Airways"];
+        const {
+            passenger,
+            flight,
+            airline,
+            routeFromCode,
+            routeFromName,
+            routeToCode,
+            routeToName,
+            seat,
+            gate,
+            terminal,
+            bpNumber,
+            departureDate,
+            departureTime,
+            bags
+        } = data;
 
-        // ensure directory exists
-        if (!fs.existsSync("passes")) fs.mkdirSync("passes");
+        const html = `
+        <html>
+        <head>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    padding: 40px;
+                }
+                .card {
+                    background: #fff;
+                    border-radius: 10px;
+                    padding: 25px;
+                    width: 700px;
+                    margin: auto;
+                }
+                .title { font-size: 22px; font-weight: bold; }
+                .label { font-size: 10px; color: #666; }
+                .value { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+                .row { display: flex; justify-content: space-between; margin-top: 20px; }
+                .barcode {
+                    width: 100%; height: 60px;
+                    background: repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 5px);
+                    margin-top: 30px;
+                }
+            </style>
+        </head>
+        <body>
+        <div class="card">
+            <div class="title">${airline}</div>
+            <hr>
+            <div class="label">Passenger</div>
+            <div class="value">${passenger}</div>
 
-        // Load template
-        let html = fs.readFileSync("template.html", "utf8");
+            <div class="row">
+                <div>
+                    <div class="label">From</div>
+                    <div class="value">${routeFromCode} (${routeFromName})</div>
+                </div>
+                <div>
+                    <div class="label">To</div>
+                    <div class="value">${routeToCode} (${routeToName})</div>
+                </div>
+            </div>
 
-        // Insert values
-        html = html
-            .replace(/{{airline}}/g, data.airline)
-            .replace(/{{airlineLogo}}/g, airlineLogo)
-            .replace(/{{passenger}}/g, data.passenger)
-            .replace(/{{flight}}/g, data.flight)
-            .replace(/{{routeFromCode}}/g, data.routeFromCode || "")
-            .replace(/{{routeToCode}}/g, data.routeToCode || "")
-            .replace(/{{routeFromName}}/g, data.routeFromName || "")
-            .replace(/{{routeToName}}/g, data.routeToName || "")
-            .replace(/{{departureDate}}/g, data.departureDate)
-            .replace(/{{departureTime}}/g, data.departureTime)
-            .replace(/{{gate}}/g, data.gate)
-            .replace(/{{seat}}/g, data.seat)
-            .replace(/{{terminal}}/g, data.terminal)
-            .replace(/{{bpNumber}}/g, data.bpNumber)
-            .replace(/{{bags}}/g, data.bags);
+            <div class="row">
+                <div>
+                    <div class="label">Flight</div>
+                    <div class="value">${flight}</div>
+                </div>
+                <div>
+                    <div class="label">Seat</div>
+                    <div class="value">${seat}</div>
+                </div>
+                <div>
+                    <div class="label">Gate</div>
+                    <div class="value">${gate}</div>
+                </div>
+                <div>
+                    <div class="label">Terminal</div>
+                    <div class="value">${terminal}</div>
+                </div>
+            </div>
 
-        // Puppeteer launch
+            <div class="row">
+                <div>
+                    <div class="label">Departure Date</div>
+                    <div class="value">${departureDate}</div>
+                </div>
+                <div>
+                    <div class="label">Departure Time</div>
+                    <div class="value">${departureTime}</div>
+                </div>
+            </div>
+
+            <div class="barcode"></div>
+
+            <p style="text-align:center; margin-top:15px;">Boarding Pass: ${bpNumber}</p>
+        </div>
+        </body>
+        </html>
+        `;
+
         const browser = await puppeteer.launch({
-            args: chromium.args,
-            defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(),
-            headless: chromium.headless
+            headless: true,
+            args: ["--no-sandbox"]
         });
 
         const page = await browser.newPage();
         await page.setContent(html, { waitUntil: "networkidle0" });
 
-        const fileName = `${data.flight}-${data.passenger.replace(/\s+/g, "")}.png`;
-        const filePath = path.join("passes", fileName);
+        const filename = `${flight}-${passenger.replace(/\s/g, "")}.png`;
+        const filepath = path.join(PASSES_DIR, filename);
 
-        await page.screenshot({
-            path: filePath,
-            fullPage: true
-        });
-
+        await page.screenshot({ path: filepath, fullPage: true });
         await browser.close();
 
-        res.json({
+        return res.json({
             status: "success",
-            imageUrl: `http://boarding-pass-generator.onrender.com/passes/${fileName}`
+            imageUrl: `http://boarding-pass-generator.onrender.com/passes/${filename}`
         });
 
-    } catch (err) {
-        console.error("ERROR:", err);
-        res.status(500).json({ status: "error", message: err.message });
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ status: "error", message: error.message });
     }
 });
 
-app.get("/", (req, res) => {
-    res.send("Boarding Pass Generator Running");
-});
+// Serve generated passes
+app.use("/passes", express.static(PASSES_DIR));
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
