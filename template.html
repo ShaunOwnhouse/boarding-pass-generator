@@ -5,80 +5,72 @@
     <title>Boarding Pass</title>
     <style>
         body {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: #f0f0f0;
             padding: 40px;
             font-family: Arial, sans-serif;
         }
-
         .card {
             background: #fff;
             width: 700px;
             margin: auto;
-            border-radius: 20px;
+            border-radius: 15px;
             padding: 30px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
         }
-
-        h1 {
-            margin: 0 0 10px 0;
-            font-size: 24px;
-            color: #333;
-        }
-
-        .section-title {
-            margin-top: 20px;
-            font-size: 14px;
+        .title {
+            font-size: 26px;
             font-weight: bold;
-            color: #555;
+            margin-bottom: 20px;
         }
-
+        .label {
+            font-size: 12px;
+            color: #777;
+            margin-top: 20px;
+        }
         .value {
             font-size: 22px;
             margin-bottom: 10px;
-            color: #333;
         }
-
         .barcode {
             height: 80px;
+            margin-top: 20px;
             background: repeating-linear-gradient(
                 90deg,
-                #000 0px, 
+                #000 0px,
                 #000 2px,
                 #fff 2px,
                 #fff 4px
             );
-            margin-top: 30px;
         }
     </style>
 </head>
-
 <body>
 <div class="card">
 
-    <h1>✈️ {{airline}}</h1>
+    <div class="title">✈️ {{airline}}</div>
 
-    <div class="section-title">Passenger</div>
+    <div class="label">Passenger</div>
     <div class="value">{{passenger}}</div>
 
-    <div class="section-title">Flight</div>
+    <div class="label">Flight</div>
     <div class="value">{{flight}}</div>
 
-    <div class="section-title">Route</div>
+    <div class="label">Route</div>
     <div class="value">{{route}}</div>
 
-    <div class="section-title">Seat</div>
+    <div class="label">Seat</div>
     <div class="value">{{seat}}</div>
 
-    <div class="section-title">Gate</div>
+    <div class="label">Gate</div>
     <div class="value">{{gate}}</div>
 
-    <div class="section-title">Terminal</div>
+    <div class="label">Terminal</div>
     <div class="value">{{terminal}}</div>
 
-    <div class="section-title">Departure</div>
+    <div class="label">Departure</div>
     <div class="value">{{departureDate}} {{departureTime}}</div>
 
-    <div class="section-title">Boarding Pass Number</div>
+    <div class="label">Boarding Pass Number</div>
     <div class="value">{{bpNumber}}</div>
 
     <div class="barcode"></div>
